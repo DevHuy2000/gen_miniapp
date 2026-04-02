@@ -1,0 +1,783 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>FF VN Generator</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=Orbitron:wght@400;700;900&family=Noto+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ff-red: #ff2d2d;
+    --ff-orange: #ff6b00;
+    --ff-gold: #ffd700;
+    --ff-cyan: #00e5ff;
+    --ff-dark: #0a0a0f;
+    --ff-card: #111118;
+    --ff-border: #1e1e2e;
+    --ff-text: #e8e8f0;
+    --ff-muted: #6b6b8a;
+    --ff-rare: #b44aff;
+    --ff-success: #00ff88;
+    --ff-fail: #ff4466;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  body {
+    font-family: 'Noto Sans', sans-serif;
+    background: var(--ff-dark);
+    color: var(--ff-text);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+  body::before {
+    content:'';
+    position:fixed; inset:0;
+    background:
+      radial-gradient(ellipse 60% 50% at 20% 10%, rgba(255,45,45,0.12) 0%, transparent 60%),
+      radial-gradient(ellipse 50% 40% at 80% 80%, rgba(0,229,255,0.08) 0%, transparent 50%),
+      radial-gradient(ellipse 40% 60% at 50% 50%, rgba(180,74,255,0.05) 0%, transparent 60%);
+    pointer-events:none; z-index:0;
+  }
+  body::after {
+    content:'';
+    position:fixed; inset:0;
+    background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,0.03) 2px,rgba(0,0,0,0.03) 4px);
+    pointer-events:none; z-index:0;
+  }
+  .app { position:relative; z-index:1; max-width:480px; margin:0 auto; padding-bottom:30px; }
+
+  /* HEADER */
+  .header { position:relative; padding:20px 16px 0; text-align:center; overflow:hidden; }
+  .header-glow {
+    position:absolute; top:-20px; left:50%; transform:translateX(-50%);
+    width:200px; height:80px;
+    background:radial-gradient(ellipse at 50% 100%, rgba(255,107,0,0.4) 0%, transparent 70%);
+    filter:blur(8px);
+    animation:pulse-glow 2.5s ease-in-out infinite;
+  }
+  @keyframes pulse-glow {
+    0%,100% { opacity:0.6; transform:translateX(-50%) scaleY(1); }
+    50%      { opacity:1;   transform:translateX(-50%) scaleY(1.2); }
+  }
+  .logo-text {
+    font-family:'Orbitron',monospace; font-size:28px; font-weight:900; letter-spacing:3px;
+    background:linear-gradient(135deg,#ff2d2d 0%,#ff6b00 40%,#ffd700 70%,#ff6b00 100%);
+    -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text;
+    filter:drop-shadow(0 0 20px rgba(255,107,0,0.5));
+    animation:logo-shimmer 3s ease-in-out infinite;
+  }
+  @keyframes logo-shimmer {
+    0%,100% { filter:drop-shadow(0 0 20px rgba(255,107,0,0.5)); }
+    50%      { filter:drop-shadow(0 0 30px rgba(255,45,45,0.8)) drop-shadow(0 0 60px rgba(255,107,0,0.3)); }
+  }
+  .logo-sub { font-family:'Rajdhani',sans-serif; font-size:11px; font-weight:600; letter-spacing:6px; color:var(--ff-muted); margin-top:2px; }
+  .vn-badge {
+    display:inline-flex; align-items:center; gap:6px;
+    background:linear-gradient(135deg,rgba(255,45,45,0.15),rgba(255,107,0,0.1));
+    border:1px solid rgba(255,45,45,0.3); border-radius:20px;
+    padding:4px 12px; font-family:'Rajdhani',sans-serif; font-size:12px;
+    font-weight:700; color:#ff6b6b; letter-spacing:2px; margin-top:8px;
+  }
+  .api-status {
+    display:inline-flex; align-items:center; gap:5px;
+    font-family:'Rajdhani',sans-serif; font-size:10px; font-weight:600;
+    letter-spacing:1px; color:var(--ff-muted); margin-top:6px;
+  }
+  .api-dot { width:6px; height:6px; border-radius:50%; background:var(--ff-muted); }
+  .api-dot.online { background:var(--ff-success); animation:blink 2s ease-in-out infinite; }
+  .api-dot.offline { background:var(--ff-fail); }
+
+  /* STATS */
+  .stats-bar { display:grid; grid-template-columns:repeat(4,1fr); gap:8px; padding:16px; margin-top:16px; }
+  .stat-card {
+    background:var(--ff-card); border:1px solid var(--ff-border);
+    border-radius:10px; padding:10px 6px; text-align:center;
+    position:relative; overflow:hidden;
+  }
+  .stat-card::before { content:''; position:absolute; top:0; left:0; right:0; height:2px; border-radius:2px 2px 0 0; }
+  .stat-card.green::before { background:var(--ff-success); }
+  .stat-card.gold::before  { background:var(--ff-gold); }
+  .stat-card.purple::before{ background:var(--ff-rare); }
+  .stat-card.cyan::before  { background:var(--ff-cyan); }
+  .stat-num { font-family:'Orbitron',monospace; font-size:18px; font-weight:700; line-height:1; }
+  .stat-card.green .stat-num  { color:var(--ff-success); }
+  .stat-card.gold .stat-num   { color:var(--ff-gold); }
+  .stat-card.purple .stat-num { color:var(--ff-rare); }
+  .stat-card.cyan .stat-num   { color:var(--ff-cyan); }
+  .stat-label { font-family:'Rajdhani',sans-serif; font-size:9px; font-weight:600; letter-spacing:1px; color:var(--ff-muted); text-transform:uppercase; margin-top:3px; }
+
+  /* TABS */
+  .tab-bar {
+    display:flex; gap:4px; padding:0 16px; margin-top:20px;
+    overflow-x:auto; scrollbar-width:none;
+  }
+  .tab-bar::-webkit-scrollbar { display:none; }
+  .tab-btn {
+    flex-shrink:0; padding:7px 14px;
+    background:var(--ff-card); border:1px solid var(--ff-border); border-radius:8px;
+    font-family:'Rajdhani',sans-serif; font-size:11px; font-weight:700;
+    letter-spacing:1px; color:var(--ff-muted); cursor:pointer;
+    transition:all 0.2s; text-transform:uppercase; white-space:nowrap;
+  }
+  .tab-btn.active {
+    background:linear-gradient(135deg,rgba(255,107,0,0.15),rgba(255,45,45,0.1));
+    border-color:rgba(255,107,0,0.4); color:var(--ff-orange);
+  }
+
+  /* SECTION */
+  .section { padding:0 16px; margin-top:16px; }
+  .section-title {
+    font-family:'Rajdhani',sans-serif; font-size:11px; font-weight:700;
+    letter-spacing:3px; color:var(--ff-muted); text-transform:uppercase;
+    margin-bottom:10px; display:flex; align-items:center; gap:8px;
+  }
+  .section-title::after { content:''; flex:1; height:1px; background:linear-gradient(90deg,var(--ff-border),transparent); }
+
+  /* CONTROL PANEL */
+  .control-panel {
+    background:var(--ff-card); border:1px solid var(--ff-border);
+    border-radius:14px; padding:18px; position:relative; overflow:hidden;
+  }
+  .control-panel::before {
+    content:''; position:absolute; top:0; left:0; right:0; height:1px;
+    background:linear-gradient(90deg,transparent,rgba(255,107,0,0.5),transparent);
+  }
+  .input-group { margin-bottom:14px; }
+  .input-label {
+    font-family:'Rajdhani',sans-serif; font-size:11px; font-weight:600;
+    letter-spacing:2px; color:var(--ff-muted); text-transform:uppercase;
+    margin-bottom:6px; display:flex; align-items:center; gap:6px;
+  }
+  .input-row { display:flex; align-items:center; gap:8px; }
+  .range-input {
+    -webkit-appearance:none; appearance:none; flex:1;
+    height:4px; background:var(--ff-border); border-radius:2px; outline:none;
+  }
+  .range-input::-webkit-slider-thumb {
+    -webkit-appearance:none; width:18px; height:18px;
+    background:linear-gradient(135deg,#ff6b00,#ff2d2d); border-radius:50%;
+    cursor:pointer; box-shadow:0 0 10px rgba(255,107,0,0.6); transition:box-shadow 0.2s;
+  }
+  .range-value { font-family:'Orbitron',monospace; font-size:14px; font-weight:700; color:var(--ff-orange); min-width:36px; text-align:right; }
+
+  .toggle-row {
+    display:flex; align-items:center; justify-content:space-between;
+    padding:10px 0; border-bottom:1px solid var(--ff-border);
+  }
+  .toggle-row:last-of-type { border-bottom:none; }
+  .toggle-title { font-family:'Rajdhani',sans-serif; font-size:13px; font-weight:600; color:var(--ff-text); }
+  .toggle-desc  { font-size:11px; color:var(--ff-muted); margin-top:1px; }
+  .toggle-switch { position:relative; width:44px; height:24px; flex-shrink:0; }
+  .toggle-switch input { display:none; }
+  .toggle-slider {
+    position:absolute; inset:0; background:var(--ff-border);
+    border-radius:12px; cursor:pointer; transition:0.3s;
+  }
+  .toggle-slider::before {
+    content:''; position:absolute; left:3px; top:3px;
+    width:18px; height:18px; background:var(--ff-muted); border-radius:50%; transition:0.3s;
+  }
+  input:checked + .toggle-slider { background:linear-gradient(135deg,rgba(255,107,0,0.3),rgba(255,45,45,0.3)); border:1px solid rgba(255,107,0,0.5); }
+  input:checked + .toggle-slider::before { transform:translateX(20px); background:linear-gradient(135deg,#ff6b00,#ff2d2d); box-shadow:0 0 8px rgba(255,107,0,0.8); }
+
+  /* BUTTONS */
+  .btn-start {
+    width:100%; padding:16px;
+    background:linear-gradient(135deg,#ff2d2d 0%,#ff6b00 50%,#ffd700 100%);
+    border:none; border-radius:12px;
+    font-family:'Orbitron',monospace; font-size:14px; font-weight:700; letter-spacing:3px;
+    color:#000; cursor:pointer; position:relative; overflow:hidden;
+    transition:all 0.2s; margin-top:16px;
+  }
+  .btn-start:active { transform:scale(0.98); }
+  .btn-start:disabled { opacity:0.5; cursor:not-allowed; }
+  .btn-start.running {
+    background:linear-gradient(135deg,#1a1a2e,#16213e);
+    color:var(--ff-cyan); border:1px solid var(--ff-cyan);
+  }
+  .btn-stop {
+    width:100%; padding:12px; background:transparent;
+    border:1px solid rgba(255,68,102,0.4); border-radius:10px;
+    font-family:'Rajdhani',sans-serif; font-size:13px; font-weight:700;
+    letter-spacing:2px; color:var(--ff-fail); cursor:pointer;
+    margin-top:8px; transition:all 0.2s; display:none;
+  }
+  .btn-stop.visible { display:block; }
+  .btn-stop:active { background:rgba(255,68,102,0.1); }
+
+  /* PROGRESS */
+  .progress-wrap { display:none; margin-top:14px; }
+  .progress-wrap.visible { display:block; }
+  .progress-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; }
+  .progress-label { font-family:'Rajdhani',sans-serif; font-size:12px; font-weight:600; letter-spacing:1px; color:var(--ff-muted); text-transform:uppercase; }
+  .progress-count { font-family:'Orbitron',monospace; font-size:12px; color:var(--ff-cyan); }
+  .progress-track { height:6px; background:var(--ff-border); border-radius:3px; overflow:hidden; }
+  .progress-fill {
+    height:100%; width:0%;
+    background:linear-gradient(90deg,#ff2d2d,#ff6b00,#ffd700);
+    border-radius:3px; transition:width 0.3s ease; position:relative; overflow:hidden;
+  }
+  .progress-fill::after {
+    content:''; position:absolute; top:0; left:-100%; right:0; bottom:0;
+    background:linear-gradient(90deg,transparent,rgba(255,255,255,0.3),transparent);
+    animation:shimmer 1.5s linear infinite;
+  }
+  @keyframes shimmer { 0%{ transform:translateX(0); } 100%{ transform:translateX(200%); } }
+  .progress-stats { display:flex; gap:12px; margin-top:8px; }
+  .progress-stat { font-size:11px; color:var(--ff-muted); font-family:'Rajdhani',sans-serif; font-weight:500; }
+  .progress-stat span { color:var(--ff-text); font-weight:600; }
+
+  /* ERROR BOX */
+  .error-box {
+    background:rgba(255,68,102,0.08); border:1px solid rgba(255,68,102,0.3);
+    border-radius:10px; padding:12px 14px; margin-top:12px;
+    font-family:'Rajdhani',sans-serif; font-size:12px; color:var(--ff-fail);
+    display:none; line-height:1.5;
+  }
+  .error-box.show { display:block; }
+
+  /* FEED */
+  .acc-feed { padding:0 16px; margin-top:16px; }
+  .feed-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:10px; }
+  .live-dot { display:inline-block; width:6px; height:6px; background:var(--ff-success); border-radius:50%; margin-right:5px; animation:blink 1s ease-in-out infinite; }
+  @keyframes blink { 0%,100%{ opacity:1; } 50%{ opacity:0.2; } }
+  .clear-btn { font-family:'Rajdhani',sans-serif; font-size:11px; font-weight:600; letter-spacing:1px; color:var(--ff-muted); background:none; border:none; cursor:pointer; text-transform:uppercase; }
+
+  .feed-list { display:flex; flex-direction:column; gap:8px; max-height:400px; overflow-y:auto; scrollbar-width:none; }
+  .feed-list::-webkit-scrollbar { display:none; }
+
+  .acc-card {
+    background:var(--ff-card); border:1px solid var(--ff-border);
+    border-radius:12px; padding:14px; position:relative; overflow:hidden;
+    animation:card-in 0.3s ease-out; cursor:pointer; transition:border-color 0.2s;
+  }
+  @keyframes card-in { from{ opacity:0; transform:translateY(-10px); } to{ opacity:1; transform:translateY(0); } }
+  .acc-card:active { border-color:rgba(255,107,0,0.4); }
+  .acc-card.rare { border-color:rgba(180,74,255,0.4); background:linear-gradient(135deg,rgba(180,74,255,0.05),var(--ff-card)); }
+  .acc-card.rare::before { content:''; position:absolute; top:0; left:0; right:0; height:2px; background:linear-gradient(90deg,transparent,var(--ff-rare),transparent); }
+  .acc-row { display:grid; grid-template-columns:auto 1fr; gap:4px 10px; align-items:start; }
+  .acc-field-key { font-family:'Rajdhani',sans-serif; font-size:10px; font-weight:600; letter-spacing:1px; color:var(--ff-muted); text-transform:uppercase; white-space:nowrap; padding-top:1px; }
+  .acc-field-val { font-family:'Rajdhani',sans-serif; font-size:13px; font-weight:600; color:var(--ff-text); word-break:break-all; }
+  .acc-field-val.uid-val  { color:var(--ff-cyan); font-size:12px; font-family:'Orbitron',monospace; }
+  .acc-field-val.pass-val { color:var(--ff-orange); }
+  .acc-field-val.rare-val { color:var(--ff-rare); }
+  .acc-field-val.id-val   { color:var(--ff-gold); font-family:'Orbitron',monospace; font-size:11px; }
+  .acc-badge-row { display:flex; gap:6px; margin-top:8px; flex-wrap:wrap; }
+  .badge { font-family:'Rajdhani',sans-serif; font-size:9px; font-weight:700; letter-spacing:1px; text-transform:uppercase; padding:2px 8px; border-radius:4px; }
+  .badge-vn     { background:rgba(255,45,45,0.15); border:1px solid rgba(255,45,45,0.3); color:#ff6b6b; }
+  .badge-rare   { background:rgba(180,74,255,0.15); border:1px solid rgba(180,74,255,0.3); color:var(--ff-rare); }
+  .badge-act    { background:rgba(0,255,136,0.1); border:1px solid rgba(0,255,136,0.3); color:var(--ff-success); }
+  .badge-fail   { background:rgba(255,68,102,0.1); border:1px solid rgba(255,68,102,0.3); color:var(--ff-fail); }
+  .copy-hint { position:absolute; bottom:8px; right:10px; font-size:9px; color:var(--ff-muted); font-family:'Rajdhani',sans-serif; letter-spacing:1px; opacity:0; transition:opacity 0.2s; }
+  .acc-card:hover .copy-hint { opacity:1; }
+
+  /* EMPTY */
+  .empty-state { text-align:center; padding:40px 20px; display:none; }
+  .empty-state.show { display:block; }
+  .empty-icon { font-size:40px; margin-bottom:10px; opacity:0.4; }
+  .empty-text { font-family:'Rajdhani',sans-serif; font-size:13px; color:var(--ff-muted); letter-spacing:1px; line-height:1.8; }
+
+  /* TOAST */
+  .toast {
+    position:fixed; bottom:80px; left:50%; transform:translateX(-50%) translateY(20px);
+    background:var(--ff-card); border:1px solid var(--ff-border); border-radius:10px;
+    padding:10px 20px; font-family:'Rajdhani',sans-serif; font-size:13px;
+    font-weight:600; color:var(--ff-text); z-index:999; opacity:0;
+    transition:all 0.3s; white-space:nowrap; box-shadow:0 8px 32px rgba(0,0,0,0.5);
+  }
+  .toast.show { opacity:1; transform:translateX(-50%) translateY(0); }
+
+  /* MODAL */
+  .modal-overlay {
+    position:fixed; inset:0; background:rgba(0,0,0,0.7); backdrop-filter:blur(4px);
+    z-index:100; display:none; align-items:flex-end; justify-content:center;
+  }
+  .modal-overlay.show { display:flex; }
+  .modal-sheet {
+    width:100%; max-width:480px; background:#13131f;
+    border-radius:20px 20px 0 0; border-top:1px solid var(--ff-border);
+    padding:20px; animation:sheet-up 0.3s ease-out;
+  }
+  @keyframes sheet-up { from{ transform:translateY(100%); } to{ transform:translateY(0); } }
+  .modal-handle { width:36px; height:4px; background:var(--ff-border); border-radius:2px; margin:0 auto 16px; }
+  .modal-title { font-family:'Orbitron',monospace; font-size:13px; font-weight:700; color:var(--ff-text); letter-spacing:2px; margin-bottom:16px; text-align:center; }
+  .modal-item {
+    background:var(--ff-card); border:1px solid var(--ff-border); border-radius:10px;
+    padding:12px 14px; margin-bottom:8px; display:flex; align-items:center;
+    justify-content:space-between; cursor:pointer; transition:border-color 0.2s;
+  }
+  .modal-item:active { border-color:var(--ff-orange); }
+  .modal-item-label { font-family:'Rajdhani',sans-serif; font-size:11px; font-weight:600; letter-spacing:1px; color:var(--ff-muted); text-transform:uppercase; margin-bottom:2px; }
+  .modal-item-val { font-family:'Orbitron',monospace; font-size:12px; color:var(--ff-text); word-break:break-all; }
+  .modal-copy-icon { color:var(--ff-orange); font-size:16px; flex-shrink:0; margin-left:10px; }
+  .modal-close { width:100%; padding:12px; background:transparent; border:1px solid var(--ff-border); border-radius:10px; font-family:'Rajdhani',sans-serif; font-size:13px; font-weight:700; letter-spacing:2px; color:var(--ff-muted); cursor:pointer; margin-top:8px; text-transform:uppercase; }
+
+  /* SPINNING LOADER */
+  .spin { display:inline-block; animation:spin 1s linear infinite; }
+  @keyframes spin { to{ transform:rotate(360deg); } }
+
+  @keyframes count-up { from{ transform:translateY(5px); opacity:0; } to{ transform:translateY(0); opacity:1; } }
+  .count-change { animation:count-up 0.2s ease-out; }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- HEADER -->
+  <div class="header">
+    <div class="header-glow"></div>
+    <div class="logo-text">VN GEN</div>
+    <div class="logo-sub">Free Fire Account Generator</div>
+    <div style="display:flex;justify-content:center;gap:10px;align-items:center;flex-wrap:wrap;margin-top:8px;">
+      <div class="vn-badge">🇻🇳 VIỆT NAM SERVER · v1.0</div>
+    </div>
+    <div style="display:flex;justify-content:center;margin-top:6px;">
+      <div class="api-status">
+        <div class="api-dot" id="api-dot"></div>
+        <span id="api-status-txt">Đang kiểm tra kết nối...</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- STATS -->
+  <div class="stats-bar">
+    <div class="stat-card green">
+      <div class="stat-num" id="stat-success">0</div>
+      <div class="stat-label">Thành công</div>
+    </div>
+    <div class="stat-card gold">
+      <div class="stat-num" id="stat-rare">0</div>
+      <div class="stat-label">ACC Hiếm</div>
+    </div>
+    <div class="stat-card cyan">
+      <div class="stat-num" id="stat-failed">0</div>
+      <div class="stat-label">Thất bại</div>
+    </div>
+    <div class="stat-card purple">
+      <div class="stat-num" id="stat-activated">0</div>
+      <div class="stat-label">Activated</div>
+    </div>
+  </div>
+
+  <!-- TABS -->
+  <div class="tab-bar">
+    <button class="tab-btn active" onclick="setTab('gen',this)">🚀 Tạo ACC</button>
+    <button class="tab-btn" onclick="setTab('list',this)">📁 Danh sách</button>
+    <button class="tab-btn" onclick="setTab('rare',this)">💎 Hiếm</button>
+  </div>
+
+  <!-- TAB GEN -->
+  <div id="tab-gen">
+    <div class="section">
+      <div class="section-title">⚙️ Cài đặt</div>
+      <div class="control-panel">
+
+        <div class="input-group">
+          <div class="input-label">🎯 Số ACC cần tạo</div>
+          <div class="input-row">
+            <input type="range" class="range-input" id="total-range" min="1" max="50" value="5"
+              oninput="document.getElementById('total-val').textContent=this.value">
+            <div class="range-value" id="total-val">5</div>
+          </div>
+        </div>
+
+        <div class="input-group" style="margin-bottom:0">
+          <div class="input-label">⚡ Số luồng song song</div>
+          <div class="input-row">
+            <input type="range" class="range-input" id="thread-range" min="1" max="5" value="2"
+              oninput="document.getElementById('thread-val').textContent=this.value">
+            <div class="range-value" id="thread-val">2</div>
+          </div>
+        </div>
+
+        <div style="margin-top:14px">
+          <div class="toggle-row">
+            <div>
+              <div class="toggle-title">🔥 Auto-Activate</div>
+              <div class="toggle-desc">Kích hoạt acc sau khi tạo</div>
+            </div>
+            <label class="toggle-switch">
+              <input type="checkbox" id="toggle-activate" checked>
+              <div class="toggle-slider"></div>
+            </label>
+          </div>
+          <div class="toggle-row">
+            <div>
+              <div class="toggle-title">💎 Phát hiện ACC Hiếm</div>
+              <div class="toggle-desc">Lưu riêng acc có ID đặc biệt</div>
+            </div>
+            <label class="toggle-switch">
+              <input type="checkbox" id="toggle-rare" checked>
+              <div class="toggle-slider"></div>
+            </label>
+          </div>
+        </div>
+
+        <!-- PROGRESS -->
+        <div class="progress-wrap" id="progress-wrap">
+          <div class="progress-header">
+            <div class="progress-label">Đang tạo...</div>
+            <div class="progress-count" id="prog-count">0 / 0</div>
+          </div>
+          <div class="progress-track">
+            <div class="progress-fill" id="prog-fill"></div>
+          </div>
+          <div class="progress-stats">
+            <div class="progress-stat">Hoàn thành: <span id="prog-done">0</span></div>
+            <div class="progress-stat">Thất bại: <span id="prog-fail">0</span></div>
+            <div class="progress-stat">Thời gian: <span id="prog-time">0s</span></div>
+          </div>
+        </div>
+
+        <!-- ERROR -->
+        <div class="error-box" id="error-box"></div>
+
+        <button class="btn-start" id="btn-start" onclick="startGenerate()">
+          ⚡ BẮT ĐẦU TẠO ACC
+        </button>
+        <button class="btn-stop" id="btn-stop" onclick="stopGenerate()">◼ DỪNG</button>
+      </div>
+    </div>
+
+    <!-- FEED -->
+    <div class="acc-feed">
+      <div class="feed-header">
+        <div class="section-title" style="margin:0">
+          <span class="live-dot" id="live-dot" style="display:none"></span>
+          ACC MỚI NHẤT
+        </div>
+        <button class="clear-btn" onclick="clearFeed()">Xóa tất cả</button>
+      </div>
+      <div id="empty-state" class="empty-state show">
+        <div class="empty-icon">🎮</div>
+        <div class="empty-text">Chưa có ACC nào<br>Cài đặt xong nhấn BẮT ĐẦU</div>
+      </div>
+      <div class="feed-list" id="feed-list"></div>
+    </div>
+  </div>
+
+  <!-- TAB LIST -->
+  <div id="tab-list" style="display:none">
+    <div class="section" style="margin-top:16px">
+      <div class="section-title">📁 Tất cả ACC (session này)</div>
+      <div id="list-empty" class="empty-state show">
+        <div class="empty-icon">📂</div>
+        <div class="empty-text">Chưa có ACC nào trong session này</div>
+      </div>
+      <div class="feed-list" id="list-all" style="max-height:none"></div>
+    </div>
+  </div>
+
+  <!-- TAB RARE -->
+  <div id="tab-rare" style="display:none">
+    <div class="section" style="margin-top:16px">
+      <div class="section-title">💎 ACC Hiếm đã phát hiện</div>
+      <div id="rare-empty" class="empty-state show">
+        <div class="empty-icon">💎</div>
+        <div class="empty-text">Chưa phát hiện ACC hiếm<br>ID đặc biệt: lặp lại, đối xứng, thấp...</div>
+      </div>
+      <div class="feed-list" id="rare-list" style="max-height:none"></div>
+    </div>
+  </div>
+
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<!-- MODAL -->
+<div class="modal-overlay" id="modal" onclick="closeModal(event)">
+  <div class="modal-sheet">
+    <div class="modal-handle"></div>
+    <div class="modal-title">📋 SAO CHÉP THÔNG TIN</div>
+    <div id="modal-content"></div>
+    <button class="modal-close" onclick="document.getElementById('modal').classList.remove('show')">Đóng</button>
+  </div>
+</div>
+
+<script>
+// ── Telegram Web App
+const tg = window.Telegram?.WebApp;
+if (tg) { tg.ready(); tg.expand(); tg.setHeaderColor('#0a0a0f'); tg.setBackgroundColor('#0a0a0f'); }
+
+// ── State
+const S = {
+  accounts: [], rare: [],
+  running: false, stopFlag: false,
+  done: 0, failed: 0, activated: 0,
+  startTs: 0,
+};
+
+// ── API base URL (tự detect khi chạy trên Vercel)
+const API_BASE = window.location.origin;
+
+// ── Check API status on load
+async function checkStatus() {
+  try {
+    const r = await fetch(`${API_BASE}/api/status`, { signal: AbortSignal.timeout(5000) });
+    const d = await r.json();
+    if (d.status === 'ok') {
+      document.getElementById('api-dot').className = 'api-dot online';
+      document.getElementById('api-status-txt').textContent = `API Online · Server ${d.server}`;
+    } else throw new Error();
+  } catch {
+    document.getElementById('api-dot').className = 'api-dot offline';
+    document.getElementById('api-status-txt').textContent = 'API Offline — kiểm tra deploy';
+  }
+}
+checkStatus();
+
+// ── Tabs
+function setTab(tab, el) {
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  el.classList.add('active');
+  ['gen','list','rare'].forEach(t => {
+    const e = document.getElementById('tab-' + t);
+    if (e) e.style.display = t === tab ? 'block' : 'none';
+  });
+  if (tab === 'list') renderListTab();
+  if (tab === 'rare') renderRareTab();
+}
+
+// ── Generate
+async function startGenerate() {
+  if (S.running) return;
+
+  const total   = parseInt(document.getElementById('total-range').value);
+  const threads = parseInt(document.getElementById('thread-range').value);
+  const autoAct = document.getElementById('toggle-activate').checked;
+
+  S.running = true; S.stopFlag = false;
+  S.done = 0; S.failed = 0; S.activated = 0;
+  S.startTs = Date.now();
+
+  document.getElementById('btn-start').disabled  = true;
+  document.getElementById('btn-start').classList.add('running');
+  document.getElementById('btn-start').innerHTML = '<span class="spin">⟳</span> ĐANG TẠO...';
+  document.getElementById('btn-stop').classList.add('visible');
+  document.getElementById('progress-wrap').classList.add('visible');
+  document.getElementById('error-box').classList.remove('show');
+  document.getElementById('live-dot').style.display = 'inline-block';
+
+  updateProgress(0, total);
+
+  // Chạy theo batch (threads luồng song song)
+  let completed = 0;
+  const queue = Array.from({ length: total }, (_, i) => i);
+
+  const runWorker = async () => {
+    while (queue.length > 0 && !S.stopFlag) {
+      queue.shift(); // lấy task
+      try {
+        const r = await fetch(`${API_BASE}/api/generate`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ auto_activate: autoAct }),
+          signal: AbortSignal.timeout(20000),
+        });
+        const data = await r.json();
+
+        if (data.success && data.account) {
+          S.done++;
+          S.accounts.unshift(data.account);
+          if (data.account.rare) { S.rare.unshift(data.account); animateStat('stat-rare', S.rare.length); }
+          if (data.account.activated) { S.activated++; animateStat('stat-activated', S.activated); }
+          animateStat('stat-success', S.done);
+          renderAccCard(data.account, 'feed-list');
+          hideEmpty();
+        } else {
+          S.failed++;
+          animateStat('stat-failed', S.failed);
+        }
+      } catch (err) {
+        S.failed++;
+        animateStat('stat-failed', S.failed);
+      }
+      completed++;
+      updateProgress(completed, total);
+    }
+  };
+
+  // Chạy N workers song song
+  const workers = Array.from({ length: Math.min(threads, total) }, () => runWorker());
+  await Promise.all(workers);
+
+  finishGenerate(total);
+}
+
+function stopGenerate() {
+  S.stopFlag = true;
+  showToast('⏹ Đã gửi lệnh dừng...');
+}
+
+function finishGenerate(total) {
+  S.running = false;
+  document.getElementById('btn-start').disabled = false;
+  document.getElementById('btn-start').classList.remove('running');
+  document.getElementById('btn-start').innerHTML = '⚡ BẮT ĐẦU TẠO ACC';
+  document.getElementById('btn-stop').classList.remove('visible');
+  document.getElementById('live-dot').style.display = 'none';
+
+  const elapsed = ((Date.now() - S.startTs) / 1000).toFixed(1);
+  if (S.done > 0) {
+    showToast(`✅ Xong! ${S.done} acc | ${S.failed} lỗi | ${elapsed}s`);
+    if (tg) tg.HapticFeedback?.notificationOccurred('success');
+  } else {
+    showError('Không tạo được acc nào. Kiểm tra lại kết nối API hoặc thử lại sau.');
+  }
+}
+
+function updateProgress(done, total) {
+  const pct = total > 0 ? (done / total) * 100 : 0;
+  document.getElementById('prog-fill').style.width = pct + '%';
+  document.getElementById('prog-count').textContent = `${done} / ${total}`;
+  document.getElementById('prog-done').textContent = S.done;
+  document.getElementById('prog-fail').textContent = S.failed;
+  const elapsed = Math.floor((Date.now() - S.startTs) / 1000);
+  document.getElementById('prog-time').textContent = elapsed + 's';
+}
+
+function showError(msg) {
+  const box = document.getElementById('error-box');
+  box.textContent = '⚠ ' + msg;
+  box.classList.add('show');
+}
+
+// ── Render card
+function renderAccCard(acc, listId) {
+  const list = document.getElementById(listId);
+  const card = document.createElement('div');
+  card.className = `acc-card${acc.rare ? ' rare' : ''}`;
+  card.onclick = () => openModal(acc);
+  card.innerHTML = `
+    <div class="acc-row">
+      <div class="acc-field-key">Tên</div>
+      <div class="acc-field-val">${acc.name}</div>
+      <div class="acc-field-key">UID</div>
+      <div class="acc-field-val uid-val">${acc.uid}</div>
+      <div class="acc-field-key">Acc ID</div>
+      <div class="acc-field-val id-val ${acc.rare ? 'rare-val' : ''}">${acc.account_id}${acc.rare ? ' ⭐' : ''}</div>
+      <div class="acc-field-key">Pass</div>
+      <div class="acc-field-val pass-val">${acc.password}</div>
+    </div>
+    <div class="acc-badge-row">
+      <span class="badge badge-vn">🇻🇳 VN</span>
+      ${acc.rare ? `<span class="badge badge-rare">💎 HIẾM · ${acc.rare_score}pt</span>` : ''}
+      ${acc.activated ? '<span class="badge badge-act">✓ ACTIVE</span>' : '<span class="badge badge-fail">✘ NOT ACT</span>'}
+    </div>
+    <div class="copy-hint">nhấn để sao chép</div>
+  `;
+  list.insertBefore(card, list.firstChild);
+  while (list.children.length > 100) list.removeChild(list.lastChild);
+}
+
+function hideEmpty() {
+  document.getElementById('empty-state').classList.remove('show');
+}
+
+function clearFeed() {
+  document.getElementById('feed-list').innerHTML = '';
+  document.getElementById('empty-state').classList.add('show');
+}
+
+// ── List & Rare tabs
+function renderListTab() {
+  const list = document.getElementById('list-all');
+  list.innerHTML = '';
+  if (S.accounts.length === 0) {
+    document.getElementById('list-empty').classList.add('show');
+    return;
+  }
+  document.getElementById('list-empty').classList.remove('show');
+  S.accounts.forEach(acc => renderAccCard(acc, 'list-all'));
+}
+
+function renderRareTab() {
+  const list = document.getElementById('rare-list');
+  list.innerHTML = '';
+  if (S.rare.length === 0) {
+    document.getElementById('rare-empty').classList.add('show');
+    return;
+  }
+  document.getElementById('rare-empty').classList.remove('show');
+  S.rare.forEach(acc => {
+    const card = document.createElement('div');
+    card.className = 'acc-card rare';
+    card.onclick = () => openModal(acc);
+    card.innerHTML = `
+      <div style="font-family:'Orbitron',monospace;font-size:10px;color:var(--ff-rare);margin-bottom:8px;letter-spacing:1px">
+        💎 SCORE: ${acc.rare_score} · ${acc.rare_reason?.split('|').pop() || ''}
+      </div>
+      <div class="acc-row">
+        <div class="acc-field-key">Acc ID</div><div class="acc-field-val rare-val">${acc.account_id}</div>
+        <div class="acc-field-key">UID</div><div class="acc-field-val uid-val">${acc.uid}</div>
+        <div class="acc-field-key">Pass</div><div class="acc-field-val pass-val">${acc.password}</div>
+      </div>
+    `;
+    list.appendChild(card);
+  });
+}
+
+// ── Modal copy
+function openModal(acc) {
+  const content = document.getElementById('modal-content');
+  const fields = [
+    { label: 'Tên', val: acc.name },
+    { label: 'UID', val: acc.uid },
+    { label: 'Acc ID', val: acc.account_id },
+    { label: 'Password', val: acc.password },
+  ];
+  content.innerHTML = fields.map(f => `
+    <div class="modal-item" onclick="copyText('${f.val}','${f.label}')">
+      <div>
+        <div class="modal-item-label">${f.label}</div>
+        <div class="modal-item-val">${f.val}</div>
+      </div>
+      <div class="modal-copy-icon">⎘</div>
+    </div>
+  `).join('') + `
+    <div class="modal-item" onclick="copyAll('${acc.uid}','${acc.password}','${acc.account_id}')">
+      <div>
+        <div class="modal-item-label">Sao chép tất cả</div>
+        <div class="modal-item-val" style="color:var(--ff-orange)">UID · Password · Acc ID</div>
+      </div>
+      <div class="modal-copy-icon">📋</div>
+    </div>
+  `;
+  document.getElementById('modal').classList.add('show');
+}
+function closeModal(e) {
+  if (e.target.id === 'modal') document.getElementById('modal').classList.remove('show');
+}
+function copyText(text, label) {
+  navigator.clipboard?.writeText(text).catch(() => {});
+  document.getElementById('modal').classList.remove('show');
+  showToast(`✅ Đã sao chép ${label}`);
+  if (tg) tg.HapticFeedback?.impactOccurred('light');
+}
+function copyAll(uid, pass, accId) {
+  navigator.clipboard?.writeText(`UID: ${uid}\nPassword: ${pass}\nAcc ID: ${accId}`).catch(() => {});
+  document.getElementById('modal').classList.remove('show');
+  showToast('✅ Đã sao chép toàn bộ');
+}
+
+// ── Helpers
+function animateStat(id, val) {
+  const el = document.getElementById(id);
+  el.textContent = val;
+  el.classList.remove('count-change');
+  void el.offsetWidth;
+  el.classList.add('count-change');
+}
+
+let toastTimer;
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 2500);
+}
+</script>
+</body>
+</html>
